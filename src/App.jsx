@@ -223,25 +223,6 @@ function App() {
                 <Typography fontSize={15} fontWeight={500}>
                   {item.name} ({item.category === 'D' ? 'Dry Goods' : item.category === 'G' ? 'Greens' : item.category === 'M' ? 'Meat' : item.category})
                 </Typography>
-                <Box>
-                  <Button 
-                    size="small" 
-                    onClick={() => handleNoteClick(item)}
-                    sx={{ mr: 1 }}
-                    color="primary"
-                    variant="contained"
-                  >
-                    {notes[item.name] ? 'Edit Note' : 'Add Note'}
-                  </Button>
-                  <Button 
-                    size="small" 
-                    onClick={() => handleDoNotRecommend(item.name)}
-                    color={doNotRecommend[item.name] ? 'error' : 'primary'}
-                    variant="contained"
-                  >
-                    {doNotRecommend[item.name] ? 'Recommended' : 'Do Not Recommend'}
-                  </Button>
-                </Box>
               </Box>
               <Typography fontSize={13} color="text.secondary" mb={1}>
                 Recommended: {item.recommended[dayType]}
@@ -271,6 +252,27 @@ function App() {
                   ))}
                 </Select>
               </FormControl>
+              <Box sx={{ mt: 1 }}>
+                <Button
+                  fullWidth
+                  size="small"
+                  onClick={() => handleNoteClick(item)}
+                  sx={{ mb: 1 }}
+                  color="primary"
+                  variant="contained"
+                >
+                  {notes[item.name] ? 'Edit Note' : 'Add Note'}
+                </Button>
+                <Button
+                  fullWidth
+                  size="small"
+                  onClick={() => handleDoNotRecommend(item.name)}
+                  color={doNotRecommend[item.name] ? 'error' : 'primary'}
+                  variant="contained"
+                >
+                  {doNotRecommend[item.name] ? 'Recommended' : 'Do Not Recommend'}
+                </Button>
+              </Box>
             </Box>
           ))}
           <Button
