@@ -11,6 +11,7 @@ const dayTypes = [
 
 const currentInventoryOptions = ['Do not order', ...Array.from({ length: 100 }, (_, i) => i)];
 const toOrderOptions = Array.from({ length: 100 }, (_, i) => i);
+const recommendedOptions = Array.from({ length: 101 }, (_, i) => i);
 
 function parseCSV(csvText) {
   const lines = csvText.split('\n');
@@ -38,7 +39,73 @@ function groupByCategory(items) {
   }, {});
 }
 
+function getSavedRecommendations() {
+  try {
+    const saved = localStorage.getItem('customRecommendations');
+    return saved ? JSON.parse(saved) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveRecommendations(recs) {
+  localStorage.setItem('customRecommendations', JSON.stringify(recs));
+}
+
+function SetupPage({ items, onBack }) {
+  const [recommendations, setRecommendations] = useState(() => getSavedRecommendations());
+
+  useEffect(() => {
+    saveRecommendations(recommendations);
+  }, [recommendations]);
+
+  const handleChange = (itemName, dayType, value) => {
+    setRecommendations(prev => ({
+      ...prev,
+      [itemName]: {
+        ...prev[itemName],
+        [dayType]: value
+      }
+    }));
+  };
+
+  return (
+    <Box sx={{ p: 2, maxWidth: 800, mx: 'auto' }}>
+      <Typography variant="h5" gutterBottom align="center">Setup Recommended Quantities</Typography>
+      <Button variant="outlined" sx={{ mb: 2 }} onClick={onBack}>Back to App</Button>
+      <Paper sx={{ p: 2 }}>
+        {items.map(item => (
+          <Box key={item.name} sx={{ mb: 2 }}>
+            <Typography fontWeight={500}>{item.name}</Typography>
+            <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
+              {dayTypes.map(dt => (
+                <FormControl key={dt.value} size="small" sx={{ minWidth: 120 }}>
+                  <InputLabel>{dt.label}</InputLabel>
+                  <Select
+                    value={
+                      (recommendations[item.name]?.[dt.value] !== undefined)
+                        ? recommendations[item.name][dt.value]
+                        : item.recommended[dt.value]
+                    }
+                    label={dt.label}
+                    onChange={e => handleChange(item.name, dt.value, e.target.value)}
+                  >
+                    {recommendedOptions.map(opt => (
+                      <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              ))}
+            </Box>
+          </Box>
+        ))}
+      </Paper>
+    </Box>
+  );
+}
+
 function App() {
+  const [page, setPage] = useState('landing');
   const [dayType, setDayType] = useState('');
   const [inventory, setInventory] = useState({});
   const [order, setOrder] = useState({});
@@ -49,11 +116,23 @@ function App() {
   const [noteDialog, setNoteDialog] = useState({ open: false, item: null, currentNote: '' });
   const [finalNote, setFinalNote] = useState('');
   const [finalNoteDialog, setFinalNoteDialog] = useState(false);
+  // Password lock state
+  const [setupPasswordDialog, setSetupPasswordDialog] = useState(false);
+  const [setupPasswordInput, setSetupPasswordInput] = useState('');
+  const [setupPasswordError, setSetupPasswordError] = useState('');
 
   useEffect(() => {
     const parsedItems = parseCSV(inventoryData);
     setItems(parsedItems);
   }, []);
+
+  // Use custom recommendations if set
+  const getItemRecommended = (item, type) => {
+    const custom = getSavedRecommendations();
+    return (custom[item.name] && custom[item.name][type] !== undefined)
+      ? custom[item.name][type]
+      : item.recommended[type];
+  };
 
   const handleDayTypeChange = (e) => {
     setDayType(e.target.value);
@@ -168,15 +247,12 @@ function App() {
   const handleApply = () => {
     const newOrder = { ...order };
     items.forEach((item) => {
-      // Only fill if user hasn't set a value
       if (newOrder[item.name] === undefined || newOrder[item.name] === '') {
         if (inventory[item.name] === 'Do not order') {
           newOrder[item.name] = 0;
-        } else if (doNotRecommend[item.name]) {
-          newOrder[item.name] = inventory[item.name] || 0;
         } else {
           const have = parseFloat(inventory[item.name]) || 0;
-          const needed = item.recommended[dayType] || 0;
+          const needed = getItemRecommended(item, dayType) || 0;
           newOrder[item.name] = Math.max(needed - have, 0);
         }
       }
@@ -258,6 +334,58 @@ function App() {
     doc.save(`order-${dateStr}.pdf`);
   };
 
+  // Password check for setup page
+  const handleSetupPageClick = () => {
+    setSetupPasswordDialog(true);
+    setSetupPasswordInput('');
+    setSetupPasswordError('');
+  };
+  const handleSetupPasswordSubmit = () => {
+    const correctPassword = 'agora123'; // Change as needed
+    if (setupPasswordInput === correctPassword) {
+      setSetupPasswordDialog(false);
+      setPage('setup');
+    } else {
+      setSetupPasswordError('Incorrect password');
+    }
+  };
+
+  if (page === 'landing') {
+    return (
+      <Box sx={{ p: 2, maxWidth: 600, mx: 'auto', textAlign: 'center' }}>
+        <Typography variant="h4" gutterBottom>Inventory App</Typography>
+        <Button variant="contained" sx={{ m: 2 }} onClick={() => setPage('main')}>Go to Main App</Button>
+        <Button variant="outlined" sx={{ m: 2 }} onClick={handleSetupPageClick}>Go to Setup Page</Button>
+        <Dialog open={setupPasswordDialog} onClose={() => setSetupPasswordDialog(false)}>
+          <DialogTitle>Enter Setup Page Password</DialogTitle>
+          <DialogContent>
+            <TextField
+              autoFocus
+              margin="dense"
+              label="Password"
+              type="password"
+              fullWidth
+              variant="outlined"
+              value={setupPasswordInput}
+              onChange={e => setSetupPasswordInput(e.target.value)}
+              error={!!setupPasswordError}
+              helperText={setupPasswordError}
+              onKeyDown={e => { if (e.key === 'Enter') handleSetupPasswordSubmit(); }}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setSetupPasswordDialog(false)}>Cancel</Button>
+            <Button onClick={handleSetupPasswordSubmit}>Submit</Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
+    );
+  }
+
+  if (page === 'setup') {
+    return <SetupPage items={items} onBack={() => setPage('landing')} />;
+  }
+
   return (
     <Box sx={{ p: 2, maxWidth: 800, mx: 'auto' }}>
       <Typography variant="h5" gutterBottom align="center">Inventory Order App</Typography>
@@ -285,7 +413,7 @@ function App() {
                 </Typography>
               </Box>
               <Typography fontSize={13} color="text.secondary" mb={1}>
-                Recommended: {item.recommended[dayType]}
+                Recommended: {getItemRecommended(item, dayType)}
               </Typography>
               <FormControl fullWidth size="small" sx={{ mb: 1 }}>
                 <InputLabel>Current Inventory</InputLabel>
