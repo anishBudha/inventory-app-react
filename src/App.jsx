@@ -88,18 +88,26 @@ function SetupPage({ items, onBack }) {
   const handleSave = () => {
     if (!localItems.length) return;
     const header = 'ITEM,CATEGORY,WEEKDAYS,WEEKENDS,LONG WEEKENDS\n';
-    const rows = localItems.map(item =>
-      [
+    const rows = localItems.map(item => {
+      const rec = recommendations[item.name] || {};
+      return [
         item.name,
         item.category,
-        item.recommended?.WEEKDAYS ?? '',
-        item.recommended?.WEEKENDS ?? '',
-        item.recommended?.['LONG WEEKENDS'] ?? ''
-      ].join(',')
-    );
+        rec.WEEKDAYS !== undefined ? rec.WEEKDAYS : item.recommended?.WEEKDAYS ?? '',
+        rec.WEEKENDS !== undefined ? rec.WEEKENDS : item.recommended?.WEEKENDS ?? '',
+        rec['LONG WEEKENDS'] !== undefined ? rec['LONG WEEKENDS'] : item.recommended?.['LONG WEEKENDS'] ?? ''
+      ].join(',');
+    });
     const csv = header + rows.join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    saveAs(blob, 'Updated_Inventory_with_Additional_Dry_Items.csv');
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'Updated_Inventory_with_Additional_Dry_Items.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
     onBack();
   };
 
