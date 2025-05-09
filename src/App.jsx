@@ -56,10 +56,6 @@ function saveRecommendations(recs) {
 function SetupPage({ items, onBack }) {
   const [recommendations, setRecommendations] = useState(() => getSavedRecommendations());
 
-  useEffect(() => {
-    saveRecommendations(recommendations);
-  }, [recommendations]);
-
   const handleChange = (itemName, dayType, value) => {
     setRecommendations(prev => ({
       ...prev,
@@ -70,10 +66,18 @@ function SetupPage({ items, onBack }) {
     }));
   };
 
+  const handleCancel = () => {
+    onBack();
+  };
+
+  const handleSave = () => {
+    saveRecommendations(recommendations);
+    onBack();
+  };
+
   return (
-    <Box sx={{ p: 2, maxWidth: 800, mx: 'auto' }}>
+    <Box sx={{ p: 2, maxWidth: 800, mx: 'auto', pb: 10 }}>
       <Typography variant="h5" gutterBottom align="center">Setup Recommended Quantities</Typography>
-      <Button variant="outlined" sx={{ mb: 2 }} onClick={onBack}>Back to App</Button>
       <Paper sx={{ p: 2 }}>
         {items.map(item => (
           <Box key={item.name} sx={{ mb: 3 }}>
@@ -101,6 +105,23 @@ function SetupPage({ items, onBack }) {
           </Box>
         ))}
       </Paper>
+      {/* Fixed bottom buttons */}
+      <Box sx={{
+        position: 'fixed',
+        left: 0,
+        bottom: 0,
+        width: '100%',
+        bgcolor: 'background.paper',
+        boxShadow: 3,
+        py: 2,
+        display: 'flex',
+        justifyContent: 'center',
+        gap: 2,
+        zIndex: 1200
+      }}>
+        <Button variant="outlined" color="secondary" onClick={handleCancel}>Cancel</Button>
+        <Button variant="contained" color="primary" onClick={handleSave}>Save</Button>
+      </Box>
     </Box>
   );
 }
