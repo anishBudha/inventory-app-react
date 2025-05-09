@@ -279,9 +279,21 @@ function App() {
   const [excelPasswordError, setExcelPasswordError] = useState('');
 
   useEffect(() => {
+    // Use custom items from localStorage if present
+    const custom = localStorage.getItem('customItems');
+    if (custom) {
+      try {
+        const parsed = JSON.parse(custom);
+        if (Array.isArray(parsed)) {
+          setItems(parsed);
+          return;
+        }
+      } catch {}
+    }
+    // Fallback to CSV
     const parsedItems = parseCSV(inventoryData);
     setItems(parsedItems);
-  }, []);
+  }, [page]);
 
   // Use custom recommendations if set
   const getItemRecommended = (item, type) => {
