@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button, MenuItem, Select, InputLabel, FormControl, Typography, Paper, Box, Dialog, DialogTitle, DialogContent, DialogActions, TextField } from '@mui/material';
 import jsPDF from 'jspdf';
+import * as XLSX from 'xlsx';
 import inventoryData from './assets/Updated_Inventory_with_Additional_Dry_Items.csv?raw';
 
 const dayTypes = [
@@ -187,61 +188,21 @@ function App() {
     setFinalNoteDialog(false);
   };
 
-  const handleGenerateFullInventoryPDF = () => {
-    const doc = new jsPDF();
-    const grouped = groupByCategory(items);
-    let y = 10;
-    const pageHeight = 280;
-    const margin = 10;
-    const lineHeight = 7;
-    const categoryHeight = 8;
-    const categorySpacing = 5;
-
-    const categoryNames = {
-      'D': 'Dry Goods',
-      'G': 'Greens',
-      'M': 'Meat',
-      'T': 'Other'
-    };
-
-    doc.setFontSize(16);
-    doc.text('Full Inventory List', margin, y);
-    y += 7;
-
+  const handleGenerateFullInventoryExcel = () => {
+    const data = items.map(item => ({
+      Item: item.name,
+      'Current Inventory': inventory[item.name] !== undefined ? inventory[item.name] : '',
+      'To Order': order[item.name] !== undefined ? order[item.name] : ''
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Full Inventory');
     const today = new Date();
     const yyyy = today.getFullYear();
     const mm = String(today.getMonth() + 1).padStart(2, '0');
     const dd = String(today.getDate()).padStart(2, '0');
     const dateStr = `${yyyy}-${mm}-${dd}`;
-    doc.setFontSize(12);
-    doc.text(`Date: ${dateStr}`, margin, y);
-    y += 7;
-
-    Object.keys(grouped).forEach((cat) => {
-      const itemsInCat = grouped[cat];
-      if (itemsInCat.length === 0) return;
-      doc.setFontSize(14);
-      doc.text(categoryNames[cat] || cat, margin, y);
-      y += categoryHeight;
-      doc.setFontSize(11);
-      itemsInCat.forEach((item) => {
-        if (y + lineHeight > pageHeight) {
-          doc.addPage();
-          y = 10;
-          doc.setFontSize(14);
-          doc.text(categoryNames[cat] || cat, margin, y);
-          y += categoryHeight;
-          doc.setFontSize(11);
-        }
-        const inv = inventory[item.name] !== undefined ? inventory[item.name] : '';
-        const toOrd = order[item.name] !== undefined ? order[item.name] : '';
-        const text = `${item.name}: Current Inventory: ${inv}, To Order: ${toOrd}`;
-        doc.text(text, margin + 5, y);
-        y += lineHeight;
-      });
-      y += categorySpacing;
-    });
-    doc.save(`full-inventory-${dateStr}.pdf`);
+    XLSX.writeFile(wb, `full-inventory-${dateStr}.xlsx`);
   };
 
   const handleApply = () => {
@@ -464,7 +425,7 @@ function App() {
           </Button>
           <Button variant="contained" fullWidth sx={{ mt: 1, mb: 1 }} onClick={handleApply}>Apply Recommended</Button>
           <Button variant="outlined" fullWidth sx={{ mb: 1 }} onClick={handleGeneratePDF} disabled={!applied}>Generate PDF</Button>
-          <Button variant="outlined" fullWidth sx={{ mb: 1 }} onClick={handleGenerateFullInventoryPDF}>Generate Full Inventory PDF</Button>
+          <Button variant="outlined" fullWidth sx={{ mb: 1 }} onClick={handleGenerateFullInventoryExcel}>Generate Full Inventory Excel</Button>
         </Paper>
       )}
 
@@ -500,7 +461,7 @@ function App() {
             value={finalNote}
             onChange={e => setFinalNote(e.target.value)}
             multiline
-            rows={1}
+            rows={4}
           />
         </DialogContent>
         <DialogActions>
