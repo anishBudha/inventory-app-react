@@ -75,11 +75,11 @@ function SetupPage({ items, onBack }) {
       <Button variant="outlined" sx={{ mb: 2 }} onClick={onBack}>Back to App</Button>
       <Paper sx={{ p: 2 }}>
         {items.map(item => (
-          <Box key={item.name} sx={{ mb: 2 }}>
-            <Typography fontWeight={500}>{item.name}</Typography>
-            <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
+          <Box key={item.name} sx={{ mb: 3 }}>
+            <Typography fontWeight={500} sx={{ mb: 1 }}>{item.name}</Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {dayTypes.map(dt => (
-                <FormControl key={dt.value} size="small" sx={{ minWidth: 120 }}>
+                <FormControl key={dt.value} size="small" sx={{ minWidth: 180 }}>
                   <InputLabel>{dt.label}</InputLabel>
                   <Select
                     value={
