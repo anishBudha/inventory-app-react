@@ -121,6 +121,10 @@ function App() {
   const [setupPasswordDialog, setSetupPasswordDialog] = useState(false);
   const [setupPasswordInput, setSetupPasswordInput] = useState('');
   const [setupPasswordError, setSetupPasswordError] = useState('');
+  // Password lock for Excel export
+  const [excelPasswordDialog, setExcelPasswordDialog] = useState(false);
+  const [excelPasswordInput, setExcelPasswordInput] = useState('');
+  const [excelPasswordError, setExcelPasswordError] = useState('');
 
   useEffect(() => {
     const parsedItems = parseCSV(inventoryData);
@@ -203,6 +207,21 @@ function App() {
     const dd = String(today.getDate()).padStart(2, '0');
     const dateStr = `${yyyy}-${mm}-${dd}`;
     XLSX.writeFile(wb, `full-inventory-${dateStr}.xlsx`);
+  };
+
+  const handleExcelExportClick = () => {
+    setExcelPasswordDialog(true);
+    setExcelPasswordInput('');
+    setExcelPasswordError('');
+  };
+  const handleExcelPasswordSubmit = () => {
+    const correctPassword = 'agora123';
+    if (excelPasswordInput === correctPassword) {
+      setExcelPasswordDialog(false);
+      handleGenerateFullInventoryExcel();
+    } else {
+      setExcelPasswordError('Incorrect password');
+    }
   };
 
   const handleApply = () => {
@@ -425,7 +444,7 @@ function App() {
           </Button>
           <Button variant="contained" fullWidth sx={{ mt: 1, mb: 1 }} onClick={handleApply}>Apply Recommended</Button>
           <Button variant="outlined" fullWidth sx={{ mb: 1 }} onClick={handleGeneratePDF} disabled={!applied}>Generate PDF</Button>
-          <Button variant="outlined" fullWidth sx={{ mb: 1 }} onClick={handleGenerateFullInventoryExcel}>Generate Full Inventory Excel</Button>
+          <Button variant="outlined" fullWidth sx={{ mb: 1 }} onClick={handleExcelExportClick}>Generate Full Inventory Excel</Button>
         </Paper>
       )}
 
@@ -467,6 +486,29 @@ function App() {
         <DialogActions>
           <Button onClick={() => setFinalNoteDialog(false)}>Cancel</Button>
           <Button onClick={() => handleFinalNoteSave(finalNote)}>Save</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={excelPasswordDialog} onClose={() => setExcelPasswordDialog(false)}>
+        <DialogTitle>Enter Password to Export Excel</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Password"
+            type="password"
+            fullWidth
+            variant="outlined"
+            value={excelPasswordInput}
+            onChange={e => setExcelPasswordInput(e.target.value)}
+            error={!!excelPasswordError}
+            helperText={excelPasswordError}
+            onKeyDown={e => { if (e.key === 'Enter') handleExcelPasswordSubmit(); }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setExcelPasswordDialog(false)}>Cancel</Button>
+          <Button onClick={handleExcelPasswordSubmit}>Submit</Button>
         </DialogActions>
       </Dialog>
     </Box>
