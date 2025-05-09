@@ -108,17 +108,77 @@ function App() {
     setFinalNoteDialog(false);
   };
 
+  const handleGenerateFullInventoryPDF = () => {
+    const doc = new jsPDF();
+    const grouped = groupByCategory(items);
+    let y = 10;
+    const pageHeight = 280;
+    const margin = 10;
+    const lineHeight = 7;
+    const categoryHeight = 8;
+    const categorySpacing = 5;
+
+    const categoryNames = {
+      'D': 'Dry Goods',
+      'G': 'Greens',
+      'M': 'Meat',
+      'T': 'Other'
+    };
+
+    doc.setFontSize(16);
+    doc.text('Full Inventory List', margin, y);
+    y += 7;
+
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const dateStr = `${yyyy}-${mm}-${dd}`;
+    doc.setFontSize(12);
+    doc.text(`Date: ${dateStr}`, margin, y);
+    y += 7;
+
+    Object.keys(grouped).forEach((cat) => {
+      const itemsInCat = grouped[cat];
+      if (itemsInCat.length === 0) return;
+      doc.setFontSize(14);
+      doc.text(categoryNames[cat] || cat, margin, y);
+      y += categoryHeight;
+      doc.setFontSize(11);
+      itemsInCat.forEach((item) => {
+        if (y + lineHeight > pageHeight) {
+          doc.addPage();
+          y = 10;
+          doc.setFontSize(14);
+          doc.text(categoryNames[cat] || cat, margin, y);
+          y += categoryHeight;
+          doc.setFontSize(11);
+        }
+        const inv = inventory[item.name] !== undefined ? inventory[item.name] : '';
+        const toOrd = order[item.name] !== undefined ? order[item.name] : '';
+        const text = `${item.name}: Current Inventory: ${inv}, To Order: ${toOrd}`;
+        doc.text(text, margin + 5, y);
+        y += lineHeight;
+      });
+      y += categorySpacing;
+    });
+    doc.save(`full-inventory-${dateStr}.pdf`);
+  };
+
   const handleApply = () => {
-    const newOrder = {};
+    const newOrder = { ...order };
     items.forEach((item) => {
-      if (inventory[item.name] === 'Do not order') {
-        newOrder[item.name] = 0;
-      } else if (doNotRecommend[item.name]) {
-        newOrder[item.name] = inventory[item.name] || 0;
-      } else {
-        const have = parseFloat(inventory[item.name]) || 0;
-        const needed = item.recommended[dayType] || 0;
-        newOrder[item.name] = Math.max(needed - have, 0);
+      // Only fill if user hasn't set a value
+      if (newOrder[item.name] === undefined || newOrder[item.name] === '') {
+        if (inventory[item.name] === 'Do not order') {
+          newOrder[item.name] = 0;
+        } else if (doNotRecommend[item.name]) {
+          newOrder[item.name] = inventory[item.name] || 0;
+        } else {
+          const have = parseFloat(inventory[item.name]) || 0;
+          const needed = item.recommended[dayType] || 0;
+          newOrder[item.name] = Math.max(needed - have, 0);
+        }
       }
     });
     setOrder(newOrder);
@@ -245,7 +305,7 @@ function App() {
                   value={order[item.name] !== undefined ? order[item.name] : ''}
                   label="To Order"
                   onChange={e => handleOrderChange(item.name, e.target.value)}
-                  disabled={inventory[item.name] === 'Do not order' || doNotRecommend[item.name]}
+                  disabled={inventory[item.name] === 'Do not order'}
                 >
                   {toOrderOptions.map((qty) => (
                     <MenuItem key={qty} value={qty}>{qty}</MenuItem>
@@ -263,15 +323,6 @@ function App() {
                 >
                   {notes[item.name] ? 'Edit Note' : 'Add Note'}
                 </Button>
-                <Button
-                  fullWidth
-                  size="small"
-                  onClick={() => handleDoNotRecommend(item.name)}
-                  color={doNotRecommend[item.name] ? 'error' : 'primary'}
-                  variant="contained"
-                >
-                  {doNotRecommend[item.name] ? 'Recommended' : 'Do Not Recommend'}
-                </Button>
               </Box>
             </Box>
           ))}
@@ -285,6 +336,7 @@ function App() {
           </Button>
           <Button variant="contained" fullWidth sx={{ mt: 1, mb: 1 }} onClick={handleApply}>Apply Recommended</Button>
           <Button variant="outlined" fullWidth sx={{ mb: 1 }} onClick={handleGeneratePDF} disabled={!applied}>Generate PDF</Button>
+          <Button variant="outlined" fullWidth sx={{ mb: 1 }} onClick={handleGenerateFullInventoryPDF}>Generate Full Inventory PDF</Button>
         </Paper>
       )}
 
