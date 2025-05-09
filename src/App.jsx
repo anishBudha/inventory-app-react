@@ -3,6 +3,7 @@ import { Button, MenuItem, Select, InputLabel, FormControl, Typography, Paper, B
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
 import inventoryData from './assets/Updated_Inventory_with_Additional_Dry_Items.csv?raw';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 
 const dayTypes = [
   { value: 'WEEKDAYS', label: 'Weekday' },
@@ -55,6 +56,10 @@ function saveRecommendations(recs) {
 
 function SetupPage({ items, onBack }) {
   const [recommendations, setRecommendations] = useState(() => getSavedRecommendations());
+  const [localItems, setLocalItems] = useState(items);
+  // Add dialog state for adding new item
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [newItem, setNewItem] = useState({ name: '', category: 'D', WEEKDAYS: '', WEEKENDS: '', 'LONG WEEKENDS': '' });
 
   const handleChange = (itemName, dayType, value) => {
     setRecommendations(prev => ({
@@ -66,44 +71,126 @@ function SetupPage({ items, onBack }) {
     }));
   };
 
+  const handleRemove = (itemName) => {
+    setLocalItems(prev => prev.filter(item => item.name !== itemName));
+    setRecommendations(prev => {
+      const newRecs = { ...prev };
+      delete newRecs[itemName];
+      return newRecs;
+    });
+  };
+
   const handleCancel = () => {
     onBack();
   };
 
   const handleSave = () => {
     saveRecommendations(recommendations);
+    // Save localItems to localStorage for persistence
+    localStorage.setItem('customItems', JSON.stringify(localItems));
     onBack();
   };
+
+  // Add Item Dialog handlers
+  const handleAddItemOpen = () => {
+    setNewItem({ name: '', category: 'D', WEEKDAYS: '', WEEKENDS: '', 'LONG WEEKENDS': '' });
+    setAddDialogOpen(true);
+  };
+  const handleAddItemClose = () => {
+    setAddDialogOpen(false);
+  };
+  const handleAddItemSave = () => {
+    if (!newItem.name.trim()) return;
+    setLocalItems(prev => [...prev, {
+      name: newItem.name.trim(),
+      category: newItem.category,
+      recommended: {
+        WEEKDAYS: parseInt(newItem.WEEKDAYS) || 0,
+        WEEKENDS: parseInt(newItem.WEEKENDS) || 0,
+        'LONG WEEKENDS': parseInt(newItem['LONG WEEKENDS']) || 0
+      }
+    }]);
+    setRecommendations(prev => ({
+      ...prev,
+      [newItem.name.trim()]: {
+        WEEKDAYS: parseInt(newItem.WEEKDAYS) || 0,
+        WEEKENDS: parseInt(newItem.WEEKENDS) || 0,
+        'LONG WEEKENDS': parseInt(newItem['LONG WEEKENDS']) || 0
+      }
+    }));
+    setAddDialogOpen(false);
+  };
+
+  // Drag and drop handler
+  const handleDragEnd = (result) => {
+    if (!result.destination) return;
+    const reordered = Array.from(localItems);
+    const [removed] = reordered.splice(result.source.index, 1);
+    reordered.splice(result.destination.index, 0, removed);
+    setLocalItems(reordered);
+  };
+
+  // Load custom items if present
+  useEffect(() => {
+    const custom = localStorage.getItem('customItems');
+    if (custom) {
+      try {
+        const parsed = JSON.parse(custom);
+        if (Array.isArray(parsed)) setLocalItems(parsed);
+      } catch {}
+    }
+  }, [items]);
 
   return (
     <Box sx={{ p: 2, maxWidth: 800, mx: 'auto', pb: 10 }}>
       <Typography variant="h5" gutterBottom align="center">Setup Recommended Quantities</Typography>
       <Paper sx={{ p: 2 }}>
-        {items.map(item => (
-          <Box key={item.name} sx={{ mb: 3 }}>
-            <Typography fontWeight={500} sx={{ mb: 1 }}>{item.name}</Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {dayTypes.map(dt => (
-                <FormControl key={dt.value} size="small" sx={{ minWidth: 180 }}>
-                  <InputLabel>{dt.label}</InputLabel>
-                  <Select
-                    value={
-                      (recommendations[item.name]?.[dt.value] !== undefined)
-                        ? recommendations[item.name][dt.value]
-                        : item.recommended[dt.value]
-                    }
-                    label={dt.label}
-                    onChange={e => handleChange(item.name, dt.value, e.target.value)}
-                  >
-                    {recommendedOptions.map(opt => (
-                      <MenuItem key={opt} value={opt}>{opt}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              ))}
-            </Box>
-          </Box>
-        ))}
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <Droppable droppableId="setup-items-droppable">
+            {(provided) => (
+              <div ref={provided.innerRef} {...provided.droppableProps}>
+                {localItems.map((item, idx) => (
+                  <Draggable key={item.name} draggableId={item.name} index={idx}>
+                    {(provided, snapshot) => (
+                      <Box
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        {...provided.dragHandleProps}
+                        sx={{ mb: 3, background: snapshot.isDragging ? '#f0f0f0' : undefined, borderRadius: 1, boxShadow: snapshot.isDragging ? 2 : 0 }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                          <Typography fontWeight={500} sx={{ flexGrow: 1 }}>{item.name}</Typography>
+                          <Button color="error" size="small" onClick={() => handleRemove(item.name)}>Remove</Button>
+                        </Box>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          {dayTypes.map(dt => (
+                            <FormControl key={dt.value} size="small" sx={{ minWidth: 180 }}>
+                              <InputLabel>{dt.label}</InputLabel>
+                              <Select
+                                value={
+                                  (recommendations[item.name]?.[dt.value] !== undefined)
+                                    ? recommendations[item.name][dt.value]
+                                    : item.recommended?.[dt.value] ?? item[dt.value] ?? 0
+                                }
+                                label={dt.label}
+                                onChange={e => handleChange(item.name, dt.value, e.target.value)}
+                              >
+                                {recommendedOptions.map(opt => (
+                                  <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+                                ))}
+                              </Select>
+                            </FormControl>
+                          ))}
+                        </Box>
+                      </Box>
+                    )}
+                  </Draggable>
+                ))}
+                {provided.placeholder}
+              </div>
+            )}
+          </Droppable>
+        </DragDropContext>
       </Paper>
       {/* Fixed bottom buttons */}
       <Box sx={{
@@ -121,7 +208,51 @@ function SetupPage({ items, onBack }) {
       }}>
         <Button variant="outlined" color="secondary" onClick={handleCancel}>Cancel</Button>
         <Button variant="contained" color="primary" onClick={handleSave}>Save</Button>
+        <Button variant="contained" color="success" onClick={handleAddItemOpen}>Add Item</Button>
       </Box>
+      {/* Add Item Dialog */}
+      <Dialog open={addDialogOpen} onClose={handleAddItemClose}>
+        <DialogTitle>Add New Item</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Item Name"
+            fullWidth
+            value={newItem.name}
+            onChange={e => setNewItem({ ...newItem, name: e.target.value })}
+          />
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel>Type</InputLabel>
+            <Select
+              value={newItem.category}
+              label="Type"
+              onChange={e => setNewItem({ ...newItem, category: e.target.value })}
+            >
+              <MenuItem value="D">Dry Goods</MenuItem>
+              <MenuItem value="G">Greens</MenuItem>
+              <MenuItem value="M">Meat</MenuItem>
+              <MenuItem value="T">Other</MenuItem>
+            </Select>
+          </FormControl>
+          {dayTypes.map(dt => (
+            <TextField
+              key={dt.value}
+              margin="dense"
+              label={`Recommended for ${dt.label}`}
+              type="number"
+              fullWidth
+              value={newItem[dt.value]}
+              onChange={e => setNewItem({ ...newItem, [dt.value]: e.target.value })}
+              sx={{ mt: 2 }}
+            />
+          ))}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleAddItemClose}>Cancel</Button>
+          <Button onClick={handleAddItemSave} variant="contained">Add</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
