@@ -4,6 +4,7 @@ import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
 import inventoryData from './assets/Updated_Inventory_with_Additional_Dry_Items.csv?raw';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { saveAs } from 'file-saver';
 
 const dayTypes = [
   { value: 'WEEKDAYS', label: 'Weekday' },
@@ -85,9 +86,20 @@ function SetupPage({ items, onBack }) {
   };
 
   const handleSave = () => {
-    saveRecommendations(recommendations);
-    // Save localItems to localStorage for persistence
-    localStorage.setItem('customItems', JSON.stringify(localItems));
+    if (!localItems.length) return;
+    const header = 'ITEM,CATEGORY,WEEKDAYS,WEEKENDS,LONG WEEKENDS\n';
+    const rows = localItems.map(item =>
+      [
+        item.name,
+        item.category,
+        item.recommended?.WEEKDAYS ?? '',
+        item.recommended?.WEEKENDS ?? '',
+        item.recommended?.['LONG WEEKENDS'] ?? ''
+      ].join(',')
+    );
+    const csv = header + rows.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    saveAs(blob, 'Updated_Inventory_with_Additional_Dry_Items.csv');
     onBack();
   };
 
